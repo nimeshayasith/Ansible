@@ -1,0 +1,143 @@
+---
+- name: Install Node.js repository
+  shell: |
+    curl -fsSL https://deb.nodesource.com/setup_{{ nodejs_version }} | bash -
+  args:
+    creates: /etc/apt/sources.list.d/nodesource.list
+
+- name: Install Node.js
+  apt:
+    name: nodejs
+    state: present
+    update_cache: yes
+
+- name: Install PM2 globally
+  npm:
+    name: pm2
+    global: yes
+    state: present
+
+- name: Verify Node.js installation
+  command: node --version
+  register: node_version
+  changed_when: false
+
+- name: Display Node.js version
+  debug:
+    msg: "Node.js version: {{ node_version.stdout }}"
+
+- name: Remove existing app directory
+  file:
+    path: "{{ app_dest }}"
+    state: absent
+
+- name: Clone EpicBook repository to temp location
+  git:
+    repo: "{{ app_repo }}"
+    dest: /tmp/epicbook-clone
+    version: main
+    force: yes
+
+- name: Install application dependencies in temp location
+  npm:
+    path: /tmp/epicbook-clone
+    state: present
+
+- name: Create app directory
+  file:
+    path: "{{ app_dest }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Copy application to final location
+  copy:
+    src: /tmp/epicbook-clone/
+    dest: "{{ app_dest }}/"
+    remote_src: yes
+    owner: www-data
+    group: www-data
+    mode: preserve
+
+- name: Remove temp clone directory
+  file:
+    path: /tmp/epicbook-clone
+    state: absent
+
+- name: Update config.json for database connection
+  copy:
+    content: |
+      {
+        "development": {
+          "username": "{{ db_user }}",
+          "password": "{{ db_password }}",
+          "database": "{{ db_name }}",
+          "host": "127.0.0.1",
+          "dialect": "mysql"
+        },
+        "production": {
+          "username": "{{ db_user }}",
+          "password": "{{ db_password }}",
+          "database": "{{ db_name }}",
+          "host": "127.0.0.1",
+          "dialect": "mysql"
+        }
+      }
+    dest: "{{ app_dest }}/config/config.json"
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Create systemd service file for EpicBook
+  copy:
+    content: |
+      [Unit]
+      Description=EpicBook Node.js Application
+      After=network.target mysql.service
+      
+      [Service]
+      Type=simple
+      User=www-data
+      Group=www-data
+      WorkingDirectory={{ app_dest }}
+      Environment="NODE_ENV=production"
+      Environment="PORT={{ app_port }}"
+      ExecStart=/usr/bin/node server.js
+      Restart=always
+      RestartSec=10
+      StandardOutput=journal
+      StandardError=journal
+      SyslogIdentifier=epicbook
+      
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/epicbook.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart epicbook
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start EpicBook service
+  systemd:
+    name: epicbook
+    enabled: yes
+    state: started
+
+- name: Ensure proper permissions on app directory
+  file:
+    path: "{{ app_dest }}"
+    owner: www-data
+    group: www-data
+    recurse: yes
+    state: directory
+
+- name: Wait for application to start
+  wait_for:
+    port: "{{ app_port }}"
+    delay: 5
+    timeout: 30

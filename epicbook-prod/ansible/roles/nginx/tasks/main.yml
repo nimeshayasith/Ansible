@@ -1,0 +1,48 @@
+---
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Ensure Nginx is enabled and started
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Create web root directory
+  file:
+    path: "{{ app_dest }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Configure Nginx for EpicBook
+  template:
+    src: epicbook.conf.j2
+    dest: /etc/nginx/sites-available/epicbook
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload nginx
+
+- name: Enable EpicBook site
+  file:
+    src: /etc/nginx/sites-available/epicbook
+    dest: /etc/nginx/sites-enabled/epicbook
+    state: link
+  notify: reload nginx
+
+- name: Test Nginx configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+  failed_when: nginx_test.rc != 0

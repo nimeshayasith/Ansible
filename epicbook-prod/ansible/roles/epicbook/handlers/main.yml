@@ -1,0 +1,6 @@
+---
+- name: restart epicbook
+  systemd:
+    name: epicbook
+    state: restarted
+    daemon_reload: yes

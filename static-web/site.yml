@@ -1,0 +1,237 @@
+---
+# Static Website Deployment - Multi-Play Structure
+# Assignment 35
+
+# ============================================================
+# Play 1: Prepare Web Servers (Installation Phase)
+# Purpose: Install and configure nginx web server
+# Runs: Once during initial setup
+# ============================================================
+- name: Prepare Web Servers - Install Nginx
+  hosts: web
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags:
+        - install
+        - packages
+
+    - name: Install nginx web server
+      apt:
+        name: nginx
+        state: present
+      tags:
+        - install
+        - packages
+
+    - name: Ensure nginx service is started
+      service:
+        name: nginx
+        state: started
+      tags:
+        - install
+        - service
+
+    - name: Ensure nginx is enabled on boot
+      service:
+        name: nginx
+        enabled: yes
+      tags:
+        - install
+        - service
+
+    - name: Verify nginx is listening on port 80
+      wait_for:
+        port: 80
+        delay: 2
+        timeout: 30
+        state: started
+      tags:
+        - install
+        - verify
+
+    - name: Display installation status
+      debug:
+        msg: "✅ Nginx installed and running on {{ inventory_hostname }}"
+      tags:
+        - install
+
+# ============================================================
+# Play 2: Deploy Static Website (Deployment Phase)
+# Purpose: Copy website content from control machine
+# Runs: Every time website content changes
+# ============================================================
+- name: Deploy Static Website Content
+  hosts: web
+  become: yes
+  gather_facts: no
+  
+  handlers:
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: restarted
+
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded
+
+  tasks:
+    - name: Remove default nginx welcome page
+      file:
+        path: /var/www/html/index.nginx-debian.html
+        state: absent
+      tags:
+        - deploy
+        - cleanup
+
+    - name: Copy index.html from control machine to web servers
+      copy:
+        src: files/index.html
+        dest: /var/www/html/index.html
+        owner: www-data
+        group: www-data
+        mode: '0644'
+        backup: yes
+      notify: Reload nginx
+      tags:
+        - deploy
+        - content
+
+    - name: Verify index.html was deployed
+      stat:
+        path: /var/www/html/index.html
+      register: index_file
+      tags:
+        - deploy
+        - verify
+
+    - name: Fail if index.html does not exist
+      fail:
+        msg: "Deployment failed - index.html not found at /var/www/html/"
+      when: not index_file.stat.exists
+      tags:
+        - deploy
+        - verify
+
+    - name: Display file information
+      debug:
+        msg: 
+          - "File: {{ index_file.stat.path }}"
+          - "Size: {{ index_file.stat.size }} bytes"
+          - "Owner: {{ index_file.stat.pw_name }}"
+          - "Permissions: {{ index_file.stat.mode }}"
+      tags:
+        - deploy
+        - info
+
+    - name: Display deployment status
+      debug:
+        msg: "✅ Website deployed successfully to {{ inventory_hostname }}"
+      tags:
+        - deploy
+
+# ============================================================
+# Play 3: Verify Deployment (Verification Phase)
+# Purpose: Test website is accessible and serving correct content
+# Runs: After every deployment
+# Privilege: No sudo needed (runs as regular user)
+# ============================================================
+- name: Verify Website Accessibility
+  hosts: web
+  become: no
+  gather_facts: yes
+  
+  tasks:
+    - name: Wait for nginx to be ready
+      wait_for:
+        port: 80
+        delay: 2
+        timeout: 30
+        state: started
+      tags:
+        - verify
+        - health
+
+    - name: Test HTTP response from localhost
+      uri:
+        url: "http://localhost"
+        return_content: yes
+        status_code: 200
+      register: http_response
+      tags:
+        - verify
+        - http
+
+    - name: Display HTTP status code
+      debug:
+        msg: "HTTP Status: {{ http_response.status }} - {{ http_response.msg }}"
+      tags:
+        - verify
+        - http
+
+    - name: Verify HTML content is present
+      uri:
+        url: "http://localhost"
+        return_content: yes
+      register: page_content
+      failed_when: "'html' not in page_content.content.lower()"
+      tags:
+        - verify
+        - content
+
+    # - name: Check for specific content in page
+    #   uri:
+    #     url: "http://localhost"
+    #     return_content: yes
+    #   register: page_check
+    #   failed_when: page_check.content_length < 1000
+    #   tags:
+    #     - verify
+    #     - content
+
+    - name: Display content verification result
+      debug:
+        msg: "✅ Website content verified on {{ inventory_hostname }}"
+      tags:
+        - verify
+
+    - name: Get public IP for browser testing
+      debug:
+        msg: "🌐 Access website: http://{{ ansible_default_ipv4.address }}"
+      when: ansible_default_ipv4.address is defined
+      tags:
+        - verify
+        - info
+
+# ============================================================
+# Final Summary
+# ============================================================
+- name: Deployment Summary
+  hosts: web
+  become: no
+  gather_facts: no
+  
+  tasks:
+    - name: Display deployment completion
+      debug:
+        msg:
+          - "════════════════════════════════════════════"
+          - "  🎉 Static Website Deployment Complete!"
+          - "════════════════════════════════════════════"
+          - ""
+          - "Deployed to: {{ groups['web'] | length }} server(s)"
+          - "Content: Azure Static Website (index.html)"
+          - "Status: ✅ All verification checks passed"
+          - ""
+          - "Next: Test in browser using server IPs"
+          - "════════════════════════════════════════════"
+      run_once: yes
+      tags:
+        - always

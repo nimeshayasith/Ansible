@@ -1,0 +1,127 @@
+---
+- name: Install MySQL server
+  apt:
+    name:
+      - mysql-server
+      - mysql-client
+      - python3-pymysql
+    state: present
+    update_cache: yes
+
+- name: Ensure MySQL is started and enabled
+  service:
+    name: mysql
+    state: started
+    enabled: yes
+
+- name: Check if root password is already set
+  shell: |
+    mysql -u root -p'{{ mysql_root_password }}' -e "SELECT 1" > /dev/null 2>&1
+    echo $?
+  register: mysql_root_check
+  changed_when: false
+  failed_when: false
+
+- name: Set MySQL root password (first time only)
+  mysql_user:
+    name: root
+    password: "{{ mysql_root_password }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    state: present
+  when: mysql_root_check.stdout != "0"
+  ignore_errors: yes
+
+- name: Remove anonymous MySQL users
+  mysql_user:
+    name: ''
+    host_all: yes
+    state: absent
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+
+- name: Remove MySQL test database
+  mysql_db:
+    name: test
+    state: absent
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  ignore_errors: yes
+
+- name: Check if database has data
+  shell: |
+    mysql -u root -p'{{ mysql_root_password }}' -e "USE {{ db_name }}; SELECT COUNT(*) FROM Books;" 2>/dev/null || echo "0"
+  register: existing_data
+  changed_when: false
+  failed_when: false
+
+- name: Drop database if we need fresh import
+  mysql_db:
+    name: "{{ db_name }}"
+    state: absent
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  when: 
+    - existing_data.stdout is defined
+    - "'Books' not in existing_data.stdout"
+
+- name: Create application database
+  mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+
+- name: Create application database user
+  mysql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    priv: "{{ db_name }}.*:ALL"
+    host: localhost
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+
+- name: Wait for application directory to exist
+  wait_for:
+    path: "{{ app_dest }}/db/BuyTheBook_Schema.sql"
+    timeout: 60
+  when: app_dest is defined
+
+- name: Check if Books table has data
+  shell: |
+    mysql -u root -p'{{ mysql_root_password }}' -e "USE {{ db_name }}; SELECT COUNT(*) as count FROM Books;" 2>/dev/null | tail -1
+  register: book_count_check
+  changed_when: false
+  failed_when: false
+
+- name: Import database schema (only if no data)
+  shell: |
+    mysql -u root -p'{{ mysql_root_password }}' {{ db_name }} < {{ app_dest }}/db/BuyTheBook_Schema.sql
+  when: 
+    - app_dest is defined
+    - book_count_check.stdout == "" or book_count_check.stdout == "0"
+
+- name: Import author seed data (only if no data)
+  shell: |
+    mysql -u root -p'{{ mysql_root_password }}' {{ db_name }} < {{ app_dest }}/db/author_seed.sql
+  when: 
+    - app_dest is defined
+    - book_count_check.stdout == "" or book_count_check.stdout == "0"
+
+- name: Import books seed data (only if no data)
+  shell: |
+    mysql -u root -p'{{ mysql_root_password }}' {{ db_name }} < {{ app_dest }}/db/books_seed.sql
+  when: 
+    - app_dest is defined
+    - book_count_check.stdout == "" or book_count_check.stdout == "0"
+
+- name: Verify final book count
+  shell: |
+    mysql -u root -p'{{ mysql_root_password }}' -e "USE {{ db_name }}; SELECT COUNT(*) FROM Books;" 2>/dev/null | tail -1
+  register: final_book_count
+  changed_when: false
+  failed_when: false
+
+- name: Display database status
+  debug:
+    msg: "Database '{{ db_name }}' has {{ final_book_count.stdout | default('0') }} books"

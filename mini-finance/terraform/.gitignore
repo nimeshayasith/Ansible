@@ -1,0 +1,54 @@
+# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+.vscode/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Ansible
+*.retry
+.ansible/
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+
+# SSH keys (NEVER commit private keys)
+*.pem
+*.key
+id_rsa*
+id_ed25519
+id_ecdsa
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+ansible.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Secrets
+secrets.yml
+vault-password.txt
+.vault_pass
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.lock.hcl
+

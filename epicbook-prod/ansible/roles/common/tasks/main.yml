@@ -1,0 +1,63 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Upgrade all packages
+  apt:
+    upgrade: dist
+    autoremove: yes
+    autoclean: yes
+
+- name: Install common packages
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - build-essential
+      - ufw
+      - fail2ban
+    state: present
+
+- name: Configure UFW defaults
+  ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: 'incoming', policy: 'deny' }
+    - { direction: 'outgoing', policy: 'allow' }
+  notify: reload ufw
+
+- name: Allow SSH through firewall
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+
+- name: Allow HTTP through firewall
+  ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+
+- name: Harden SSH - disable password authentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+  notify: restart ssh
+
+- name: Harden SSH - disable root login
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+    state: present
+  notify: restart ssh

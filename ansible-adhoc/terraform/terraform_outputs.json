@@ -1,0 +1,164 @@
+{
+  "ansible_inventory_ips": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "4.205.195.240",
+      "4.206.149.16",
+      "4.205.169.73"
+    ]
+  },
+  "resource_group_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "ansible-adhoc-rg"
+  },
+  "ssh_commands": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "ansible-vm-0": "string",
+        "ansible-vm-1": "string",
+        "ansible-vm-2": "string"
+      }
+    ],
+    "value": {
+      "ansible-vm-0": "ssh -i ~/.ssh/id_ed25519 azureuser@4.205.195.240",
+      "ansible-vm-1": "ssh -i ~/.ssh/id_ed25519 azureuser@4.206.149.16",
+      "ansible-vm-2": "ssh -i ~/.ssh/id_ed25519 azureuser@4.205.169.73"
+    }
+  },
+  "vm_details_by_role": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "app": [
+          "tuple",
+          [
+            [
+              "object",
+              {
+                "name": "string",
+                "private_ip": "string",
+                "public_ip": "string"
+              }
+            ]
+          ]
+        ],
+        "db": [
+          "tuple",
+          [
+            [
+              "object",
+              {
+                "name": "string",
+                "private_ip": "string",
+                "public_ip": "string"
+              }
+            ]
+          ]
+        ],
+        "web": [
+          "tuple",
+          [
+            [
+              "object",
+              {
+                "name": "string",
+                "private_ip": "string",
+                "public_ip": "string"
+              }
+            ]
+          ]
+        ]
+      }
+    ],
+    "value": {
+      "app": [
+        {
+          "name": "ansible-vm-1",
+          "private_ip": "10.0.1.5",
+          "public_ip": "4.206.149.16"
+        }
+      ],
+      "db": [
+        {
+          "name": "ansible-vm-2",
+          "private_ip": "10.0.1.4",
+          "public_ip": "4.205.169.73"
+        }
+      ],
+      "web": [
+        {
+          "name": "ansible-vm-0",
+          "private_ip": "10.0.1.6",
+          "public_ip": "4.205.195.240"
+        }
+      ]
+    }
+  },
+  "vm_public_ips": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "0": [
+          "object",
+          {
+            "private_ip": "string",
+            "public_ip": "string",
+            "role": "string",
+            "vm_name": "string"
+          }
+        ],
+        "1": [
+          "object",
+          {
+            "private_ip": "string",
+            "public_ip": "string",
+            "role": "string",
+            "vm_name": "string"
+          }
+        ],
+        "2": [
+          "object",
+          {
+            "private_ip": "string",
+            "public_ip": "string",
+            "role": "string",
+            "vm_name": "string"
+          }
+        ]
+      }
+    ],
+    "value": {
+      "0": {
+        "private_ip": "10.0.1.6",
+        "public_ip": "4.205.195.240",
+        "role": "web",
+        "vm_name": "ansible-vm-0"
+      },
+      "1": {
+        "private_ip": "10.0.1.5",
+        "public_ip": "4.206.149.16",
+        "role": "app",
+        "vm_name": "ansible-vm-1"
+      },
+      "2": {
+        "private_ip": "10.0.1.4",
+        "public_ip": "4.205.169.73",
+        "role": "db",
+        "vm_name": "ansible-vm-2"
+      }
+    }
+  }
+}
