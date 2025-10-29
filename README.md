@@ -4,6 +4,12 @@
 
 This repository contains hands-on Ansible assignments demonstrating infrastructure automation, configuration management, and deployment strategies used by Fortune 500 companies.
 
+## DMI Internship conducted By Pravin mishra
+
+### This is his repoistory 
+
+https://github.com/pravinmishraaws/DevOps-Micro-Internship/tree/9ff9a03d26f899f5ff900e8735e6df7e4ab65fb5/Week%207%20-%20Terraform%20(IaC)%20Assignment
+
 ---
 
 ## 📚 Table of Contents
